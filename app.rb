@@ -18,8 +18,7 @@ end
 post '/new' do
     Contribution.create({
         name: params[:user_name],
-        body: params[:body],
-        good: 0
+        body: params[:body]
     })
     redirect '/'
 end
@@ -41,13 +40,4 @@ end
 get '/edit/:id' do
     @content = Contribution.find(params[:id])
     erb :edit
-end
-
-post '/renew/:id' do
-    content = Contribution.find(params[:id])
-    content.update({
-        name: params[:user_name],
-        body: params[:body]
-    })
-    redirect '/'
 end
