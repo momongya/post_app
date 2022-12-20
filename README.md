@@ -92,6 +92,7 @@ post '/new' do
     redirect '/'
 end
 ```
+#### 4. 結果を返す
 投稿された内容を時系列順に並べるためにapp.rbのget '/' doを以下のように変更する
 ```ruby
 get '/' do
@@ -102,6 +103,160 @@ end
 ```
 app.rb側で取得したデータベースの中身を表示させるためにindex.erbに以下内容を追加する
 ```HTML
+# @contents内にはデータベースの中身が全て入っているのでひとつづつ表示させるにはeachを使って配列の中身をひとつづつ見ていく
+<% @contents.each do |content| %>
+  <div>
+    <p><%= content.name %></p>
+    <p><%= content.body %></p>
+  </div>
+<% end %>
+```
+ここまでコードを書くと以下の画像のように投稿と投稿した内容の表示はできるようになる
+<img width="1440" alt="スクリーンショット 2022-12-21 1 25 06" src="https://user-images.githubusercontent.com/61648667/208715933-2b244905-8bf4-43d6-8aa0-ff915b8a714a.png">
 
+#### 5. 見た目を整える
+index.erbにBootstrapを導入し、classを指定すると以下のようなコードになる
+```HTML
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>掲示板</title>
+ <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous"> 
+</head>
+<body>
+  <div class="container-fluid">
+    <div class="row d-flex justify-content-center">
+      <div class="card col-lg-6 m-5">
+        <div class="card-body">
+          <form action="/new" method="post">
+            <p>名前：<input type="text" name="user_name" class="form-control"></p>
+            <p>本文：<input type="text" name="body" class="form-control"></p>
+            <p><input type="submit" value="POST" class="btn btn-dark float-end"></p>
+          </form>
+        </div>
+      </div>
+      
+      <% @contents.each do |content| %>
+        <div class="card col-lg-6 mb-2 mx-5">
+          <div class="card-body">
+            <p><%= content.name %></p>
+            <p><%= content.body %></p>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
+</body>
+</html>
+```
+ここまでできると見た目も画像のようにある程度整う
+<img width="1434" alt="スクリーンショット 2022-12-21 1 30 35" src="https://user-images.githubusercontent.com/61648667/208717090-b36ab49a-e58e-4661-bf91-66ed60e84513.png">
+
+## 機能追加
+まずは削除、編集、いいね機能用ボタンをまとめて追加する
+投稿した内容の表示部分のコードを以下のように追加する(以下コードはBootstrap適応済)
+```HTML
+<% @contents.each do |content| %>
+  <div class="card col-lg-6 mb-2 mx-5">
+    <div class="card-body">
+      <p><%= content.name %></p>
+      <p><%= content.body %></p>
+      
+      # ここから追加したコード部分
+      <div class="d-flex justify-content-end align-items-center mt-3">
+        <span><%= content.good %></span>
+         
+        # formのactionを/good/<%= content.id %>のように/good/だけでなく<%= content.id %>も追加することによってボタンが押された投稿のidもapp.rbで扱うことができる
+        <form action="/good/<%= content.id %>" method="post">
+          <input type="submit" value="LIKE" class="btn">
+        </form>
+        
+        <form action="/delete/<%= content.id %>" method="post">
+          <input type="submit" value="DELETE" class="btn">
+        </form>
+
+        <a href="/edit/<%= content.id %>" class="btn">EDIT</a>
+      </div>
+    </div>
+    # ここまで
+  </div>
+<% end %>
+```
+削除、編集、いいねについてはformで機能を発動できるようにした
+いいねに関してはいいねの数が表示されるようにした
+
+#### 削除機能の作り方
+app.rbに以下のコードを追加する
+```ruby
+post '/delete/:id' do
+    # /delete/:idのidと一致するデータのレコードを探し、見つけたデータを削除する
+    Contribution.find(params[:id]).destroy
+    redirect '/'
+end
 ```
 
+#### 編集機能の作り方
+app.rbに以下のコードを追加する
+```ruby
+get '/edit/:id' do
+    # /edit/:idのidと一致するデータのレコードを探し、見つけたデータを@contentに入れてedit.erbに画面を飛ばす
+    @content = Contribution.find(params[:id])
+    erb :edit
+end
+```
+edit.erbファイルを新規作成して以下編集画面のコードを追加する
+```HTML
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>編集ページ</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous"> 
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <div class="card col-lg-6 mx-auto mt-5">
+    <div class="card-body"> 
+      <form action="/renew/<%= @content.id %>" method="post">
+        <p>名前：<input type="text" name="user_name" value="<%= @content.name%>" class="form-control"></p>
+        <p>本文：<input type="text" name="body" value="<%= @content.body%>" class="form-control"></p>
+        <p><input type="submit" value="編集完了" class="btn btn-dark float-end"></p>
+      </form>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
+</body>
+</html>
+```
+
+編集した内容が反映されるように以下のコードをapp.rbに追加する
+```ruby
+post '/renew/:id' do
+    # /renew/:idのidと一致するデータのレコードを探し、見つけたデータをcontentに入れる
+    content = Contribution.find(params[:id])
+    # 見つけたデータを編集されたデータに更新する
+    content.update({
+        name: params[:user_name],
+        body: params[:body]
+    })
+    redirect '/'
+end
+```
+
+#### いいね機能の作り方
+app.rbに以下のコードを追加する
+```ruby
+post '/good/:id' do
+    # /good/:idのidと一致するデータのレコードを探し、見つけたデータをcontentに入れる
+    content = Contribution.find(params[:id])
+    good = content.good
+    # 見つけたデータのgood(いいね)部分の数の1つ増やす
+    content.update({
+        good: good + 1
+    })
+    redirect '/'
+end
+```
